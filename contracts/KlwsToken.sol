@@ -301,7 +301,39 @@ contract StandardToken is ERC20, ERC223Token {
     }
 }
 
-contract KlwsToken is StandardToken {
+contract Ownable {
+    address public owner;
+
+    event OwnerChanged(address indexed previousOwner, address indexed newOwner);
+
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        require(msg.sender == owner);
+        _;
+    }
+
+    /**
+     * @dev Allows the current owner to transfer control of the contract to a newOwner.
+     * @param _newOwner The address to transfer ownership to.
+     */
+    function changeOwner(address _newOwner) onlyOwner public {
+        require(_newOwner != address(0));
+        emit OwnerChanged(owner, _newOwner);
+        owner = _newOwner;
+    }
+}
+
+interface ITokenContract {
+    function balanceOf(address _owner) external view returns (uint256 balance);
+
+    function approve(address _spender, uint256 _value) public returns (bool);
+
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool success);
+}
+
+contract KlwsToken is StandardToken, Ownable {
 
     string private constant _name = "Klws";
     string private constant _symbol = "KLWS";
@@ -309,17 +341,23 @@ contract KlwsToken is StandardToken {
 //    uint8 private constant _decimals = 2; //for test's
     uint256 private _totalSupply;
 
+    address public admin;
+    ITokenContract private _tokenContract;
+
     uint256 public constant INITIAL_SUPPLY = 429560317 * (10 ** uint256(_decimals));
 
-    event TokenExchanged(address indexed sender, uint256 amout);
+    event AdminChanged(address indexed previousOwner, address indexed newOwner);
 
-    constructor(address _owner) public {
-        require(_owner != address(0));
+    constructor(address _owner, address _admin) public {
+        require(_owner != address(0) && _admin != address(0));
         _totalSupply = INITIAL_SUPPLY;
-        address owner = _owner;
+        owner = _owner;
+        admin = _admin;
 //        owner = msg.sender; //for test's
+//        admin = msg.sender; //for test's
         _balances[owner] = _totalSupply;
         emit Transfer(address(0), owner, _totalSupply);
+        _tokenContract = ITokenContract(address(this));
     }
 
     function totalSupply() external view returns (uint256) {
@@ -341,4 +379,35 @@ contract KlwsToken is StandardToken {
     function() payable external {
         revert();
     }
+
+    function changeAdmin(address _newAdmin) onlyOwner external {
+        require(_newAdmin != address(0));
+        emit AdminChanged(admin, _newAdmin);
+        admin = _newAdmin;
+    }
+
+    modifier onlyAdmin() {
+        require(msg.sender == admin);
+        _;
+    }
+
+    function _initTokenContract(address _contract) onlyAdmin external {
+        _tokenContract = ITokenContract(_contract);
+    }
+
+    /* Batch token transfer. Used by contract creator to distribute initial tokens to holders */
+    function batchTransfer(address[] calldata _recipients, uint256[] calldata _values) external onlyAdmin returns (bool) {
+        uint256 walletCount = _recipients.length;
+        require(walletCount > 0 && walletCount <= 100 && walletCount == _values.length);
+        uint256 totalValues = 0;
+        for(uint i = 0; i < walletCount; i++){
+            totalValues = totalValues.add(_values[i]);
+        }
+        require(totalValues <= _tokenContract.balanceOf(owner));
+        for(uint j = 0; j < _recipients.length; j++){
+            _tokenContract.transferFrom(owner, _recipients[j], _values[j]);
+        }
+        return true;
+    }
+
 }
