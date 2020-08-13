@@ -58,7 +58,7 @@ function transferUsdt() {
 }
 
 async function makeTransferUsdtValues(_values, _wallets) {
-    var val = [];
+    var transferValues = [];
     var klwsVal = [];
     var klwsTotal = Number(0);
     var usdtTotal = await infura.getUsdtCount();
@@ -78,14 +78,14 @@ async function makeTransferUsdtValues(_values, _wallets) {
     for (var i=0; i< _values.length; i++) {
         var usdtAmount = remain*Number(klwsVal[i]/klwsTotal);
         console.log("i=" + i + " amount = " + usdtAmount.toFixed(usdtDecimal));
-        val.push(usdtAmount.toFixed(usdtDecimal)*10**usdtDecimal);
+        transferValues.push(usdtAmount.toFixed(usdtDecimal)*10**usdtDecimal);
     }
 
-    val.push(superBonus*10**usdtDecimal);
+    transferValues.push(superBonus*10**usdtDecimal);
     _wallets.push(superWallet);
-    console.log("usdtValues", val);
+    console.log("transferValues", transferValues);
     console.log("wallets", _wallets);
-    //infura.batchTransfer(wallets, usdtValues, true);
+    infura.batchTransfer(_wallets, transferValues, true);
 }
 
 function getMembers(_index, _array) {
