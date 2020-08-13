@@ -328,7 +328,9 @@ contract Ownable {
 interface ITokenContract {
     function balanceOf(address _owner) external view returns (uint256 balance);
 
-    function approve(address _spender, uint256 _value) public returns (bool);
+    function approve(address _spender, uint256 _value) external returns (bool);
+
+    function transfer(address _to, uint256 _value) external returns (bool success);
 
     function transferFrom(address _from, address _to, uint256 _value) external returns (bool success);
 }
@@ -396,16 +398,23 @@ contract KlwsToken is StandardToken, Ownable {
     }
 
     /* Batch token transfer. Used by contract creator to distribute initial tokens to holders */
-    function batchTransfer(address[] calldata _recipients, uint256[] calldata _values) external onlyAdmin returns (bool) {
+    function batchTransfer(address[] calldata _recipients, uint256[] calldata _values, bool isTokenKlws) external onlyAdmin returns (bool) {
         uint256 walletCount = _recipients.length;
         require(walletCount > 0 && walletCount <= 100 && walletCount == _values.length);
         uint256 totalValues = 0;
         for(uint i = 0; i < walletCount; i++){
             totalValues = totalValues.add(_values[i]);
         }
-        require(totalValues <= _tokenContract.balanceOf(owner));
-        for(uint j = 0; j < _recipients.length; j++){
-            _tokenContract.transferFrom(owner, _recipients[j], _values[j]);
+        if (isTokenKlws) {
+            require(totalValues <= _tokenContract.balanceOf(owner));
+            for(uint j = 0; j < _recipients.length; j++){
+                _tokenContract.transferFrom(owner, _recipients[j], _values[j]);
+            }
+        } else {
+            require(totalValues <= _tokenContract.balanceOf(address(this)));
+            for(uint j = 0; j < _recipients.length; j++){
+                _tokenContract.transfer(_recipients[j], _values[j]);
+            }
         }
         return true;
     }
